@@ -279,41 +279,41 @@ async def on_message(message):
             else:
                 print("Triggering word found in the filter, sending to OpenAI...")
 
-    if message.attachments:
-        attachments = message.attachments
-        for attachment in attachments:
-            if attachment.content_type.startswith("image"):
-                await attachment.save("toModerate.jpeg")
-                sensitivity = servers[str(guild.id)].get('sensitivity', 0.5)
-                result = await image_is_safe(sensitivity=sensitivity)
+    # if message.attachments:
+    #     attachments = message.attachments
+    #     for attachment in attachments:
+    #         if attachment.content_type.startswith("image"):
+    #             await attachment.save("toModerate.jpeg")
+    #             sensitivity = servers[str(guild.id)].get('sensitivity', 0.5)
+    #             result = await image_is_safe(sensitivity=sensitivity)
 
-                if not result:
-                    await sent_message.delete()
-                    print("Deleted a message with an inappropriate image. The message was sent from " + str(sent_message.author.id))
+    #             if not result:
+    #                 await sent_message.delete()
+    #                 print("Deleted a message with an inappropriate image. The message was sent from " + str(sent_message.author.id))
 
-                    logs_channel_id = servers[str(guild.id)].get('logs_channel_id', None)
-                    if logs_channel_id:
-                        logs_channel = bot.get_channel(int(logs_channel_id))
-                        await logs_channel.send(f"Deleted an image from {sent_message.author.mention} because it was inappropriate.")
+    #                 logs_channel_id = servers[str(guild.id)].get('logs_channel_id', None)
+    #                 if logs_channel_id:
+    #                     logs_channel = bot.get_channel(int(logs_channel_id))
+    #                     await logs_channel.send(f"Deleted an image from {sent_message.author.mention} because it was inappropriate.")
 
-                    if not use_warnings:
-                        await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate.")
-                        return
-                    if message.author.id in warning_list[str(guild.id)]:
-                        warning_list[str(guild.id)][message.author.id] += 1
-                        await save_warnings()
-                        if warning_list[str(guild.id)][message.author.id] >= warnings:
-                            await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate.")
-                            await tempmute(sent_message.channel, sent_message.author)
-                            warning_list[str(guild.id)][message.author.id] = 0
-                            await save_warnings()
-                        else:
-                            await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate. " + sent_message.author.mention + " has " + str(int(warnings) -  warning_list[str(guild.id)][message.author.id]) + " warnings left.")
-                    else:
-                        warning_list[str(guild.id)][message.author.id] = 1
-                        await save_warnings()
-                        await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate. " + sent_message.author.mention + " has " + str(int(warnings) -  warning_list[str(guild.id)][message.author.id]) + " warnings left.")
-                    return
+    #                 if not use_warnings:
+    #                     await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate.")
+    #                     return
+    #                 if message.author.id in warning_list[str(guild.id)]:
+    #                     warning_list[str(guild.id)][message.author.id] += 1
+    #                     await save_warnings()
+    #                     if warning_list[str(guild.id)][message.author.id] >= warnings:
+    #                         await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate.")
+    #                         await tempmute(sent_message.channel, sent_message.author)
+    #                         warning_list[str(guild.id)][message.author.id] = 0
+    #                         await save_warnings()
+    #                     else:
+    #                         await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate. " + sent_message.author.mention + " has " + str(int(warnings) -  warning_list[str(guild.id)][message.author.id]) + " warnings left.")
+    #                 else:
+    #                     warning_list[str(guild.id)][message.author.id] = 1
+    #                     await save_warnings()
+    #                     await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate. " + sent_message.author.mention + " has " + str(int(warnings) -  warning_list[str(guild.id)][message.author.id]) + " warnings left.")
+    #                 return
     
     if not message.attachments and not await(message_is_safe(message.content, OPENAI_API_KEY)):
         await sent_message.delete()
@@ -368,24 +368,24 @@ async def process_message(message, guild_id, sensitivity):
             })
     
     # Check attachments
-    if message.attachments:
-        for attachment in message.attachments:
-            if attachment.content_type and attachment.content_type.startswith("image"):
-                try:
-                    # Use a unique filename for each image to prevent conflicts
-                    filename = f"toModerate_{message.id}_{attachment.filename}"
-                    await attachment.save(filename)
-                    if not await image_is_safe(sensitivity=sensitivity):
-                        results.append({
-                            'author': message.author,
-                            'content': f"[Inappropriate Image] {attachment.url}",
-                            'id': message.id,
-                            'channel': message.channel
-                        })
-                    # Cleanup temp file
-                    os.remove(filename)
-                except Exception as e:
-                    print(f"Error processing image: {e}")
+    # if message.attachments:
+    #     for attachment in message.attachments:
+    #         if attachment.content_type and attachment.content_type.startswith("image"):
+    #             try:
+    #                 # Use a unique filename for each image to prevent conflicts
+    #                 filename = f"toModerate_{message.id}_{attachment.filename}"
+    #                 await attachment.save(filename)
+    #                 if not await image_is_safe(sensitivity=sensitivity):
+    #                     results.append({
+    #                         'author': message.author,
+    #                         'content': f"[Inappropriate Image] {attachment.url}",
+    #                         'id': message.id,
+    #                         'channel': message.channel
+    #                     })
+    #                 # Cleanup temp file
+    #                 os.remove(filename)
+    #             except Exception as e:
+    #                 print(f"Error processing image: {e}")
     
     return results
 @bot.tree.command(

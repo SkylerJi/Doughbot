@@ -1,9 +1,9 @@
 discord.py>=2.0.0
 python-dotenv
 openai
-Pillow
-transformers
-torch
+# Pillow
+# transformers
+# torch
 pinecone-client
 typing-extensions
 aiohttp
