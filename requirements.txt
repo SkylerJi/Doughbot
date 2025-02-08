@@ -5,6 +5,5 @@ Pillow
 transformers
 torch
 pinecone-client
-spam-embeddings
 typing-extensions
 aiohttp
