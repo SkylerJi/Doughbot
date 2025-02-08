@@ -1,11 +1,11 @@
-from transformers import pipeline
-from PIL import Image, ImageFile
+# from transformers import pipeline
+# from PIL import Image, ImageFile
 from openai import OpenAI
 from spam_embeddings import query_spam_similarity
 
-ImageFile.LOAD_TRUNCATED_IMAGES = True
+# ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-vqa_pipeline = pipeline("visual-question-answering")
+# vqa_pipeline = pipeline("visual-question-answering")
 
 async def image_is_safe(sensitivity):
         # Temporarily disabled - always return True
