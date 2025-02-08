@@ -2,9 +2,9 @@
 
 Dough is a Discord bot that utilizes OpenAI's Moderation API for text moderation and HuggingFaces' transformer model for image moderation. This bot helps maintain a safe and respectful environment in your Discord server. This bot is **COMPLETELY FREE** to use as OpenAI's Moderation API is free, and so is HuggingFace! Your OpenAI API key is only needed to prove to OpenAI that you are an API user. Rest assured however, you will not be charged!
 
-<img width="919" alt="Screenshot 2023-05-15 at 9 14 12 PM" src="https://github.com/gravelBridge/AI-Discord-Mod/assets/107640947/95324ac4-5b76-4124-9679-e8f8dabb299d">
+<img width="919" alt="Screenshot 2023-05-15 at 9 14 12 PM" src="/ai-discord-mod/images/Dough-Bans.png">
 
-# 🚀 Add an Invite-Ready, Hosted Dough Here: [Invite Dough](https://discord.com/api/oauth2/authorize?client_id=1106027638180565003&permissions=1099780144144&scope=bot)
+# 🚀 Add an Invite-Ready, Hosted Dough Here: [Invite Dough](https://discord.com/oauth2/authorize?client_id=1333703676438515742&permissions=8&integration_type=0&scope=bot)
 
 ## 🌟 Features
 
