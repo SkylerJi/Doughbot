@@ -312,7 +312,7 @@ async def on_message(message):
     #                 else:
     #                     warning_list[str(guild.id)][message.author.id] = 1
     #                     await save_warnings()
-    #                     await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate. " + sent_message.author.mention + " has " + str(int(warnings) -  warning_list[str(guild.id)][message.author.id]) + " warnings left.")
+    #                     await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s image because it was inappropriate. " + sent_message.author.mention + " has " + str(int(warnings) - warning_list[str(guild.id)][message.author.id]) + " warnings left.")
     #                 return
     
     if not message.attachments and not await(message_is_safe(message.content, OPENAI_API_KEY)):
@@ -784,9 +784,11 @@ async def find_suspicious_joins(
     await interaction.response.send_message("Scanning for suspicious join patterns...", ephemeral=True)
 
     suspicious_members = []
+    total_members = 0
     
     # Get all members or only online ones
     members = interaction.guild.members if include_offline else [m for m in interaction.guild.members if m.status != discord.Status.offline]
+    total_members = len(members)
 
     for member in members:
         if member.joined_at:  # Check if join date is available
@@ -796,49 +798,29 @@ async def find_suspicious_joins(
             if 0 <= days_diff <= max_days:  # Only include non-negative differences within threshold
                 suspicious_members.append({
                     'member': member,
-                    'account_age': (discord.utils.utcnow() - member.created_at).days,
                     'days_until_join': round(days_diff, 1)
                 })
 
-    # Sort by time between creation and join
-    suspicious_members.sort(key=lambda x: x['days_until_join'])
-
     if not suspicious_members:
         await interaction.followup.send(
-            f"No members found who joined within {max_days} days of account creation.", 
+            f"No suspicious accounts found among {total_members} checked members.", 
             ephemeral=True
         )
         return
 
-    # Create summary message in chunks
-    chunks = []
-    current_chunk = f"**Suspicious Join Patterns (joined within {max_days} days of account creation):**\n\n"
-
-    for info in suspicious_members:
-        member = info['member']
-        entry = (f"• {member.mention} ({member.name})\n"
-                f"  Account age: {info['account_age']} days\n"
-                f"  Days until joining: {info['days_until_join']} days\n"
-                f"  Created: {member.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
-                f"  Joined: {member.joined_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n")
-
-        if len(current_chunk) + len(entry) > 1900:  # Discord limit is 2000
-            chunks.append(current_chunk)
-            current_chunk = entry
-        else:
-            current_chunk += entry
-
-    if current_chunk:
-        chunks.append(current_chunk)
-
-    # Send all chunks
-    for chunk in chunks:
-        await interaction.followup.send(chunk, ephemeral=True)
-
-    # Send summary
-    summary = f"\nFound {len(suspicious_members)} suspicious account{'s' if len(suspicious_members) != 1 else ''}"
+    # Calculate statistics
+    suspicious_count = len(suspicious_members)
+    percentage = (suspicious_count / total_members) * 100 if total_members > 0 else 0
+    
+    # Create summary message
+    summary = f"**Suspicious Account Statistics:**\n\n"
+    summary += f"• Total members checked: {total_members}\n"
+    summary += f"• Suspicious accounts found: {suspicious_count}\n"
+    summary += f"• Percentage: {percentage:.1f}%\n"
+    summary += f"• Criteria: Joined within {max_days} days of account creation\n"
+    
     if not include_offline:
-        summary += " (online members only)"
+        summary += "\n(Only online members were checked)"
 
     if auto_ban:
         # Store ban data for confirmation
