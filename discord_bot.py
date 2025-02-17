@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 import asyncio
 import json
+import datetime
 
 load_dotenv()
 
@@ -325,13 +326,13 @@ async def on_message(message):
             await logs_channel.send(f"Deleted a message from {sent_message.author.mention} because it was inappropriate. The message was: '{sent_message.content}'")
 
         if not use_warnings:
-            await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s message because it was inappropriate.")
+            # await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s message because it was inappropriate.")
             return
         if message.author.id in warning_list[str(guild.id)]:
             warning_list[str(guild.id)][message.author.id] += 1
             await save_warnings()
             if warning_list[str(guild.id)][message.author.id] >= warnings:
-                await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s message because it was inappropriate.")
+                # await sent_message.channel.send("Deleted " + sent_message.author.mention + "'s message because it was inappropriate.")
                 await tempmute(sent_message.channel, sent_message.author)
                 warning_list[str(guild.id)][message.author.id] = 0
                 await save_warnings()
@@ -765,20 +766,32 @@ async def reload(interaction: discord.Interaction):
 @app_commands.describe(
     max_days="Maximum days between account creation and server join (default: 3)",
     include_offline="Include offline members in the check (default: False)",
-    auto_ban="Ban all suspicious accounts (default: False)"
+    action="Action to take: 'none' (default), 'mute', or 'ban'",
+    mute_duration="Duration for mute (e.g., '1h', '1d', '30m'). Default: '1d'"
 )
 async def find_suspicious_joins(
     interaction: discord.Interaction,
     max_days: int = 3,
     include_offline: bool = False,
-    auto_ban: bool = False
+    action: str = "none",
+    mute_duration: str = "1d"
 ):
     if not interaction.user.guild_permissions.manage_guild:
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    if auto_ban and not interaction.user.guild_permissions.ban_members:
+    # Validate action parameter
+    action = action.lower()
+    if action not in ["none", "mute", "ban"]:
+        await interaction.response.send_message("Invalid action. Must be 'none', 'mute', or 'ban'.", ephemeral=True)
+        return
+
+    if action == "ban" and not interaction.user.guild_permissions.ban_members:
         await interaction.response.send_message("You do not have permission to ban members.", ephemeral=True)
+        return
+
+    if action == "mute" and not interaction.user.guild_permissions.moderate_members:
+        await interaction.response.send_message("You do not have permission to mute members.", ephemeral=True)
         return
 
     await interaction.response.send_message("Scanning for suspicious join patterns...", ephemeral=True)
@@ -822,62 +835,100 @@ async def find_suspicious_joins(
     if not include_offline:
         summary += "\n(Only online members were checked)"
 
-    if auto_ban:
-        # Store ban data for confirmation
-        interaction.client.pending_suspicious_bans = suspicious_members
-        summary += "\n\nUse `/confirm_suspicious_bans` to ban these accounts."
+    if action != "none":
+        # Store action data for confirmation
+        interaction.client.pending_suspicious_action = {
+            'members': suspicious_members,
+            'action': action,
+            'mute_duration': mute_duration
+        }
+        summary += f"\n\nUse `/confirm_suspicious_action` to {action} these accounts"
+        if action == "mute":
+            summary += f" for {mute_duration}"
     
     await interaction.followup.send(summary, ephemeral=True)
 
 @bot.tree.command(
-    name="confirm_suspicious_bans",
-    description="Confirm and execute bans for suspicious accounts identified in the last scan"
+    name="confirm_suspicious_action",
+    description="Confirm and execute action (ban/mute) for suspicious accounts identified in the last scan"
 )
-async def confirm_suspicious_bans(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.ban_members:
-        await interaction.response.send_message("You do not have permission to ban members.", ephemeral=True)
-        return
-    
-    if not hasattr(interaction.client, 'pending_suspicious_bans'):
+async def confirm_suspicious_action(interaction: discord.Interaction):
+    if not hasattr(interaction.client, 'pending_suspicious_action'):
         await interaction.response.send_message(
-            "No pending suspicious bans found. Please run `/find_suspicious_joins auto_ban:True` first.", 
+            "No pending actions found. Please run `/find_suspicious_joins` first.", 
             ephemeral=True
         )
         return
     
-    suspicious_members = interaction.client.pending_suspicious_bans
+    action_data = interaction.client.pending_suspicious_action
+    action = action_data['action']
+    members = action_data['members']
+    
+    if action == "ban" and not interaction.user.guild_permissions.ban_members:
+        await interaction.response.send_message("You do not have permission to ban members.", ephemeral=True)
+        return
+    
+    if action == "mute" and not interaction.user.guild_permissions.moderate_members:
+        await interaction.response.send_message("You do not have permission to mute members.", ephemeral=True)
+        return
     
     await interaction.response.send_message(
-        f"Beginning ban process for {len(suspicious_members)} suspicious accounts...", 
+        f"Beginning {action} process for {len(members)} suspicious accounts...", 
         ephemeral=True
     )
     
-    banned_count = 0
+    success_count = 0
     failed_count = 0
     failed_members = []
     
-    for info in suspicious_members:
+    for info in members:
         member = info['member']
         try:
-            await interaction.guild.ban(
-                member,
-                reason=f"Suspicious account: joined {info['days_until_join']} days after creation"
-            )
-            banned_count += 1
+            if action == "ban":
+                await interaction.guild.ban(
+                    member,
+                    reason=f"Suspicious account: joined {info['days_until_join']} days after creation"
+                )
+            else:  # mute
+                # Parse duration
+                duration = action_data['mute_duration']
+                try:
+                    amount = int(duration[:-1])
+                    unit = duration[-1].lower()
+                    if unit == 's':
+                        seconds = amount
+                    elif unit == 'm':
+                        seconds = amount * 60
+                    elif unit == 'h':
+                        seconds = amount * 3600
+                    elif unit == 'd':
+                        seconds = amount * 86400
+                    else:
+                        raise ValueError("Invalid duration unit")
+                    
+                    await member.timeout(
+                        discord.utils.utcnow() + datetime.timedelta(seconds=seconds),
+                        reason=f"Suspicious account: joined {info['days_until_join']} days after creation"
+                    )
+                except ValueError:
+                    await interaction.followup.send(f"Invalid mute duration format: {duration}. Use format like '1h', '1d', '30m'", ephemeral=True)
+                    return
+                
+            success_count += 1
         except Exception as e:
             failed_count += 1
             failed_members.append(f"{member.name} (Error: {str(e)})")
     
     # Create result message
-    result = f"Ban operation completed:\n• Successfully banned: {banned_count} members\n"
+    result = f"{action.title()} operation completed:\n• Successfully {action}ed: {success_count} members\n"
     if failed_count > 0:
-        result += f"• Failed to ban: {failed_count} members\n\nFailed bans:"
+        result += f"• Failed to {action}: {failed_count} members\n\nFailed {action}s:"
         for failed in failed_members:
             result += f"\n• {failed}"
     
     await interaction.followup.send(result, ephemeral=True)
     
-    # Clear pending bans
-    interaction.client.pending_suspicious_bans = None
+    # Clear pending action
+    interaction.client.pending_suspicious_action = None
 
 bot.run(BOT_TOKEN)
